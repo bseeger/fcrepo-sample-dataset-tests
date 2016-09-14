@@ -56,7 +56,7 @@ def check_sources(origOne, newOne, output):
             origJson = origOne.fetchResourceTriples(newJson[0]['@id'])
             if origJson is None:
                 print('RESOURCE MISSING from original system: {0}'.format(newObj))
-                output.write('RESOURCE MISSING: Resource not found in original system:\n\t{0}'.format(newObj))
+                output.write('RESOURCE MISSING: Resource not found in original system:\n\t{0}\n'.format(newObj))
                 if g_interactive and raw_input('RESOURCE MISSING. Keep going? Y, n: ').lower() != 'y':
                     output.write('Stopping at user\'s request\n')
                     break
