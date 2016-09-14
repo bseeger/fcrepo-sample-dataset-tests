@@ -15,24 +15,30 @@ Fedora4 server.
 
 Many of these tests assume that you've either already exported or imported data from/to a
 Fedora4 system.  To learn how to export or import data, please visit the 
-Fedora4 Import Export Client page, linked to above. 
+Fedora4 Import Export Client page, linked to above.
 
 
-Below are the tests and their specific usage. 
+Below are the tests and their specific usage.
 ---
 
 ## Verify
 
-To run the verify test, first edit the configuration file ```config.ini``` (details below) and 
+This script has been run in python 2.7.11, but should, in theory, work in python 3.
+
+This tool will run in one of two modes:
+* it will verify everything in the specified export directory is in Fedora4
+* it will verify that everything in Fedora4 is located on the file system in the export directory
+
+To run the verify test, first edit the configuration file ```config.ini``` (details below) and
 then run:
 
     $> python ./verify.py
 
-This will create a report file that's at the location specified in the configuration file. 
+This will create a report file that's at the location specified in the configuration file.
 
 ### Config
 
-The configuration variables can be configured in the ```config.ini```, which should be 
+The configuration variables can be configured in the ```config.ini```, which should be
 located in the same directory as the python script.
 
 #### Config: ```general``` section

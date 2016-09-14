@@ -21,6 +21,7 @@
 # Date Created: September 2016
 #
 
+from __future__ import absolute_import, division, print_function
 import json
 import requests
 import os
@@ -38,7 +39,7 @@ class Source() :
         return self.prefix
 
     def fetchResourceTriples(self, resource):
-        raise NotImplementedError("Don't call this on the base class!")
+        raise NotImplementedError('Don\'t call this on the base class!')
 
 
 class FileSource(Source):
@@ -64,7 +65,7 @@ class FileSource(Source):
             return json_data
 
         except ValueError:
-            print("ValueError on {}".format(resource))
+            print('ValueError on {}'.format(resource))
 
     def next(self):
         for dirpath, dirname, filenames in os.walk(self.filepath, onerror=FileSource.walkfailed):
@@ -92,23 +93,23 @@ class HttpSource(Source):
         if settings.g_verbose:
             print('fetching HTTP resource: {0}'.format(resource))
 
-        r = requests.get(resource, auth=(self.username, self.password), headers={"Accept": mime});
+        r = requests.get(resource, auth=(self.username, self.password), headers={'Accept': mime});
         if settings.g_verbose:
-            print r
+            print(r)
         if r.status_code == 200:
-            if mime == "application/ld+json":
+            if mime == 'application/ld+json':
                 return r.json()
             else:
                 if settings.g_verbose:
-                    print "Invalid mime type of {0} requested, returning text".format(mime)
+                    print('Invalid mime type of {0} requested, returning text'.format(mime))
                 return r.text
         elif settings.g_verbose:
-            print "HttpSource failed to get object: got status: " + str(r.status_code)
+            print('HttpSource failed to get object: got status: ' + str(r.status_code))
 
         return None
 
     def next(self):
         # TODO - walk the fedora tree here...
-        raise NotImplementedError("Check back soon...")
+        raise NotImplementedError('Check back soon...')
 
 

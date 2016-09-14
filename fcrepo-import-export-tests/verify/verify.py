@@ -21,6 +21,7 @@
 # Date Created: September 2016
 #
 
+from __future__ import absolute_import, division, print_function
 from ConfigParser import SafeConfigParser
 import argparse
 import os
@@ -54,7 +55,7 @@ def check_sources(origOne, newOne, output):
             # fetch the original triples
             origJson = origOne.fetchResourceTriples(newJson[0]['@id'])
             if origJson is None:
-                print("RESOURCE MISSING from original system: {0}".format(newObj))
+                print('RESOURCE MISSING from original system: {0}'.format(newObj))
                 output.write('RESOURCE MISSING: Resource not found in original system:\n\t{0}'.format(newObj))
                 if g_interactive and raw_input('RESOURCE MISSING. Keep going? Y, n: ').lower() != 'y':
                     output.write('Stopping at user\'s request\n')
@@ -69,7 +70,7 @@ def check_sources(origOne, newOne, output):
             temp = [x for x in newJsonTuples if x not in origJsonTuples]
             if len(temp) > 0:
                 # they don't match!!! Ooops!
-                print ("RESOURCE MISMATCH: {0}".format(newObj))
+                print ('RESOURCE MISMATCH: {0}'.format(newObj))
                 output.write('RESOURCE MISMATCH: {0} \n'.format(newObj))
                 # TODO - include temp list in output
                 if g_interactive and raw_input('Resource Mismatch. Keep going? Y, n: ').lower() != 'y':
@@ -80,7 +81,7 @@ def check_sources(origOne, newOne, output):
 
     except IOError as err:
         # TODO - make better, clearer error message
-        print ("IO Error received!")
+        print ('IO Error received!')
         output.write('Resource not processed {0}\nError: {1}\n'.format(newOne, err))
 
     output.write('Done checking objects. Looked at {0} objects in {1}.\n'.format(num_files, newOne))
@@ -96,10 +97,8 @@ if __name__ == '__main__':
 
     if args.i:
         g_interactive = True
-        print ("INTERACTIVE")
     if args.v:
         settings.g_verbose = True
-        print ("VERBOSE")
 
     cfgParser = SafeConfigParser()
     cfgParser.read(CONFIG)
@@ -121,7 +120,7 @@ if __name__ == '__main__':
     descDir = fileDir + cfgParser.get('file1', 'desc_path')
 
     if binDir is None or descDir is None:
-        print "Unable to run: the export must be in two separate directories."
+        print('Unable to run: the export must be in two separate directories.')
         exit()
 
     # mode dictates order of arguments passed in.
