@@ -22,7 +22,6 @@
 #
 
 from __future__ import absolute_import, division, print_function
-import json
 import requests
 import os
 import settings
@@ -100,11 +99,10 @@ class FileSource(Source):
 
     def fetchResourceTriples(self, aresource):
         resource = translate(self, aresource)
-        # read file, return json object
         try:
             with open(resource, 'r') as fp:
-                json_data = json.load(fp)
-            return json_data
+                data = fp.read()
+            return data
 
         except ValueError:
             print('ValueError on {}'.format(resource))
@@ -140,7 +138,7 @@ class HttpSource(Source):
 
     # resource is the full path, so maybe we don't need prefix, though I could see
     # perhaps needing it down the road.
-    def fetchResourceTriples(self, aresource, mime='application/ld+json'):
+    def fetchResourceTriples(self, aresource, mime='application/n-triples'):
         resource = translate(self, aresource)
         if settings.verbose:
             print('fetching HTTP resource: {0}'.format(resource))
@@ -155,9 +153,10 @@ class HttpSource(Source):
         if settings.verbose:
             print(r)
         if r.status_code == 200:
-            if mime == 'application/ld+json':
-                return r.json()
+            if mime == 'application/n-triples':
+                return r.text
             else:
+                #TODO - make this error msg more robust
                 if settings.verbose:
                     print('Invalid mime type of {0} requested, returning text'.format(mime))
                 return r.text

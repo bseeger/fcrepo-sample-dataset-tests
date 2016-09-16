@@ -29,7 +29,6 @@ settings.init()
 import argparse
 from ConfigParser import SafeConfigParser
 import hashlib
-import json
 import os
 
 from source import HttpSource
@@ -52,16 +51,19 @@ def check_sources(origSource, newSource, log):
             if settings.verbose:
                 print('Looking at {0}'.format(newResourceName))
 
-            # fetch the new and old object's triples
-            newJson = newSource.fetchResourceTriples(newResourceName)
-            origResourceName = newJson[0]['@id']
-            origJson = origSource.fetchResourceTriples(origResourceName)
+            # fetch the resource triples from new place & sort it
+            newTriplesStr = newSource.fetchResourceTriples(newResourceName)
+            newTriples = sorted(newTriplesStr.strip().split('\n'))
 
-            if settings.FCREPO_BINARY_URI in origJson[0]['@type']:
+            # fetch the resource from original place & sort it
+            origResourceName = newTriples[0][1:newTriples[0].find('> <')]
+
+            origTriples = sorted(origSource.fetchResourceTriples(origResourceName).split('\n'))
+
+            if settings.FCREPO_BINARY_URI in newTriplesStr:
                 binary = True
 
-
-            if origJson is None:
+            if origTriples is None:
                 print('RESOURCE MISSING from original system: {0}'.format(newResourceName))
                 log.write('RESOURCE MISSING: Resource not found in original system:\n\t{0}\n'.format(newResourceName))
                 if g_interactive and raw_input('RESOURCE MISSING. Keep going? Y, n: ').lower() != 'y':
@@ -70,13 +72,8 @@ def check_sources(origSource, newSource, log):
                 else:
                     continue
 
-            # get a list of sorted tuples for each thing.
-            newJsonTuples = sorted(newJson[0].items(), key=getKey)
-            origJsonTuples = sorted(origJson[0].items(), key=getKey)
-
-            temp = [x for x in newJsonTuples if x not in origJsonTuples]
-            # the metadata is not the same!
-            if len(temp) > 0:
+            # test if they are eqivalent
+            if set(origTriples) != set(newTriples):
                 # they don't match!!! Ooops!
                 print ('ERR: RESOURCE MISMATCH: {0}'.format(newResourceName))
                 log.write('ERR: RESOURCE MISMATCH: {0} \n'.format(newResourceName))
@@ -86,7 +83,11 @@ def check_sources(origSource, newSource, log):
                     break
 
             if binary is True:
-                origSHA1 = origJson[0]['http://www.loc.gov/premis/rdf/v1#hasMessageDigest'][0]['@id']
+                origSHA1 = [x for x in origTriples if 'http://www.loc.gov/premis/rdf/v1#hasMessageDigest' in x]
+                if len(origSHA1) > 1 or len(origSHA1) <= 0:
+                    log.write('ERR: found more then one SHA1 for a binary!: {0}\n'.format(newResourceName))
+                    print('ERR: found more then one SHA1 for a binary!: {0}'.format(newResourceName))
+                origSHA1 = origSHA1[0][origSHA1[0].rfind('> <') + 3:-3]
                 check_binaries(origSource, newSource, origResourceName, newResourceName,
                         origSHA1.replace('urn:sha1:', ''), log)
 
