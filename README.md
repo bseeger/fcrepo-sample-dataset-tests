@@ -27,7 +27,12 @@ This script has been run in python 2.7.11, but should, in theory, work in python
 
 This tool will run in one of two modes:
 * it will verify everything in the specified export directory is in Fedora4
-* it will verify that everything in Fedora4 is located on the file system in the export directory
+* it will verify that everything in Fedora4 is located on the file system in the export directory <-- not yet implemented
+
+The general flow:
+* Export data from a Fedora4 system in **n-triples** format, using the [Fedora4 Import Export Client](http://github.com/fcrepo4-labs/fcrepo-import-export)
+* Configure this verification tool
+* Run this tool and check the 'verification-report.txt' file that was created. It will report on errors found. 
 
 To run the verify test, first edit the configuration file ```config.ini``` (details below) and
 then run:
@@ -51,8 +56,9 @@ Location of resulting report:
     report_dir = ./
 
 #### Config:  ```file1``` section
-The large assumption here is that the binary and description directories are
-located in the same root directory.  This should probably change in the future.
+
+**The large assumption here is that the binary and description directories are
+located in the same root directory.  This should probably change in the future.**
 
 Given the parameters below, the relevant directories would be found at:
 
