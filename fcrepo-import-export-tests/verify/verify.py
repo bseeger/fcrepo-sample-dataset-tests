@@ -58,7 +58,7 @@ def check_sources(origSource, newSource, log):
             # fetch the resource from original place & sort it
             origResourceName = newTriples[0][1:newTriples[0].find('> <')]
 
-            origTriples = sorted(origSource.fetchResourceTriples(origResourceName).split('\n'))
+            origTriples = sorted(origSource.fetchResourceTriples(origResourceName).strip().split('\n'))
 
             if settings.FCREPO_BINARY_URI in newTriplesStr:
                 binary = True
