@@ -57,8 +57,11 @@ Location of resulting report:
 
 #### Config:  ```file1``` section
 
-**The large assumption here is that the binary and description directories are
-located in the same root directory.  This should probably change in the future.**
+The large assumption here is that the binary and description directories are
+located in the same root directory.  This may or may not change in the future.
+
+Currently the binary and description directories must be separate directories.  The tool has only
+been tested with two separate directories.
 
 Given the parameters below, the relevant directories would be found at:
 
