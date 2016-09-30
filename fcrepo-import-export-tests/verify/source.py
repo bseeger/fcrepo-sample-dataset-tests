@@ -61,9 +61,9 @@ class FileSource(Source):
     def __iter__(self):
         return self
 
-    def next(self):
+    def __next__(self):
         if not self.to_check:
-            raise StopIteration()
+            raise StopIteration
         else:
             return self.to_check.pop()
 
@@ -179,7 +179,7 @@ class HttpSource(Source):
     # author: Josh Westgard (jwestgard)
     def next(self):
        if not self.to_check:
-            raise StopIteration()
+            raise StopIteration
        else:
             current = self.to_check.pop()
             children = self.get_children(current)

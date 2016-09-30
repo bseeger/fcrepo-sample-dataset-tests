@@ -26,7 +26,7 @@ from __future__ import absolute_import, division, print_function
 import settings
 
 import argparse
-from ConfigParser import SafeConfigParser
+from configparser import SafeConfigParser
 import hashlib
 import os
 
