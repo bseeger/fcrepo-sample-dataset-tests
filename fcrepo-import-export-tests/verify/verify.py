@@ -24,85 +24,83 @@
 from __future__ import absolute_import, division, print_function
 
 import settings
-settings.init()
 
 import argparse
 from ConfigParser import SafeConfigParser
 import hashlib
 import os
 
+import logging
+
 from source import HttpSource
 from source import FileSource
 
 CONFIG = 'config.ini'
 REPORT_FILE = 'verification_report.txt'
-g_interactive = False
+
 
 def getKey(item):
     return item[0]
 
-def check_sources(origSource, newSource, log):
+def check_sources(origSource, newSource):
+    num_missing = 0
+    num_desc_match_err = 0
+    num_bin_match_err = 0
     num_files = 0
 
-    try:
-        for newResourceName in newSource.next():
-            binary = False
+    for newResourceName in newSource:
+        binary = False
 
-            if settings.verbose:
-                print('Looking at {0}'.format(newResourceName))
-
+        try:
             # fetch the resource triples from new place & sort it
             newTriplesStr = newSource.fetchResourceTriples(newResourceName)
             newTriples = sorted(newTriplesStr.strip().split('\n'))
 
-            # fetch the resource from original place & sort it
-            origResourceName = newTriples[0][1:newTriples[0].find('> <')]
+            # fetch the resource from original place
+            origResourceName = translate_to_desc(newSource, origSource, newTriples[0][1:newTriples[0].find('> <')])
 
-            origTriples = sorted(origSource.fetchResourceTriples(origResourceName).strip().split('\n'))
+            origTriples = origSource.fetchResourceTriples(origResourceName)
+
+            # was the resource there?
+            if origTriples is None:
+                logger.error('ERR: Resource Missing: Resource not found in original system:\n\t{0}'.format(newResourceName))
+                num_missing += 1
+                continue
+
+            logger.info('Looking at: {}...'.format(newResourceName))
+
+            # sort the triples
+            origTriples = sorted(origTriples.strip().split('\n'))
 
             if settings.FCREPO_BINARY_URI in newTriplesStr:
                 binary = True
 
-            if origTriples is None:
-                print('RESOURCE MISSING from original system: {0}'.format(newResourceName))
-                log.write('RESOURCE MISSING: Resource not found in original system:\n\t{0}\n'.format(newResourceName))
-                if g_interactive and raw_input('RESOURCE MISSING. Keep going? Y, n: ').lower() != 'y':
-                    log.write('Stopping at user\'s request\n')
-                    break
-                else:
-                    continue
-
             # test if they are eqivalent
             if set(origTriples) != set(newTriples):
-                # they don't match!!! Ooops!
-                print ('ERR: RESOURCE MISMATCH: {0}'.format(newResourceName))
-                log.write('ERR: RESOURCE MISMATCH: {0} \n'.format(newResourceName))
-                # TODO - include temp list in log
-                if g_interactive and raw_input('Resource Mismatch. Keep going? Y, n: ').lower() != 'y':
-                    log.write('Stopping at user\'s request\n')
-                    break
+                logger.error('ERR: Resource Mismatch: {0}'.format(newResourceName))
+                num_desc_match_err += 1
 
             if binary is True:
                 origSHA1 = [x for x in origTriples if 'http://www.loc.gov/premis/rdf/v1#hasMessageDigest' in x]
-                if len(origSHA1) > 1 or len(origSHA1) <= 0:
-                    log.write('ERR: found more then one SHA1 for a binary!: {0}\n'.format(newResourceName))
-                    print('ERR: found more then one SHA1 for a binary!: {0}'.format(newResourceName))
+                if len(origSHA1) != 1:
+                   logger.error('Couldn\'t find SHA1 for binary: {0}\n'.format(newResourceName))
+
                 origSHA1 = origSHA1[0][origSHA1[0].rfind('> <') + 3:-3]
-                check_binaries(origSource, newSource, origResourceName, newResourceName,
-                        origSHA1.replace('urn:sha1:', ''), log)
+                if not check_binaries(origSource, newSource, origResourceName, newResourceName,
+                        origSHA1.replace('urn:sha1:', '')):
+                    num_bin_match_err += 1
 
             num_files += 1
 
-    except IOError as err:
-        # TODO - make better, clearer error message
-        print ('IO Error received!')
-        log.write('Resource not processed {0}\nError: {1}\n'.format(newSource, err))
+        except IOError as err:
+            logger.error('Unable to access resource: {0}\nError: {1}\n'.format(newResourceName, err))
 
-    log.write('Done checking objects. Looked at {0} objects in {1}.\n'.format(num_files, newSource))
-    print('Done checking objects. Looked at {0} objects in {1}.'.format(num_files, newSource))
-    return num_files
+    logger.info('\nDone checking objects. Looked at {0} objects in {1}.\n'.format(num_files, newSource))
 
-def check_binaries(origSource, newSource, origResourceName, newResourceName, origResourceSHA1, log):
+    return {'rec_count':num_files, 'missing':num_missing, 'desc_mismatch':num_desc_match_err,
+            'bin_mismatch':num_bin_match_err}
+
+def check_binaries(origSource, newSource, origResourceName, newResourceName, origResourceSHA1):
 
     origSHA1 = hashlib.sha1()
     newSHA1 = hashlib.sha1()
@@ -110,78 +108,132 @@ def check_binaries(origSource, newSource, origResourceName, newResourceName, ori
     origSHA1.update(origSource.fetchBinaryResource(origResourceName))
     newSHA1.update(newSource.fetchBinaryResource(newResourceName))
 
-    if settings.verbose:
-        print('SHA1:\n\tresource: {0}\n\torig sha1: {1}\n\tnew sha1: {2}'.format(
-              origResourceSHA1, origSHA1.hexdigest(), newSHA1.hexdigest()))
+    logger.debug('SHA1:\n\tresource: {0}\n\torig sha1: {1}\n\tnew sha1: {2}'.format(
+          origResourceSHA1, origSHA1.hexdigest(), newSHA1.hexdigest()))
 
-    # logic: compare what the description file says to what was computed.
-    # then compare the two computed values, if all is well, they should all be equal
+    # logic: compare what the original description file says to what was computed.
+    # then compare the two newly computed values, if all is well, they should all be equal
     if origResourceSHA1 != origSHA1.hexdigest() or origSHA1.hexdigest() != newSHA1.hexdigest():
-        if settings.verbose:
-            print('SHA1:\n\tfrom resource: {0}\n\torig sha1: {1}\n\tnew sha1: {2}'.format(origResourceSHA1, origSHA1.hexdigest(), newSHA1.hexdigest()))
-
-        print('ERR: RESOURCE MISMATCH: Binary resources do not match for resource: {}'.format(origResourceName))
-        log.write('ERR: RESOURCE MISMATCH: Binary resources do not match for resource: {}\n'.format(origResourceName))
-        log.write('\tSHA1:\n\t\tresource: {0}\n\t\torig sha1: {1}\n\t\tnew sha1: {2}\n'.format(origResourceSHA1, origSHA1.hexdigest(), newSHA1.hexdigest()))
+        logger.debug('SHA1:\n\tfrom resource: {0}\n\torig sha1: {1}\n\tnew sha1: {2}'.format(
+            origResourceSHA1, origSHA1.hexdigest(), newSHA1.hexdigest()))
+        logger.error('ERR: Binary Mismatch: Binary resources do not match for resource: {}'.format(
+            origResourceName))
+        logger.error('\tSHA1:\n\t\tresource: {0}\n\t\torig sha1: {1}\n\t\tnew sha1: {2}'.format(
+            origResourceSHA1, origSHA1.hexdigest(), newSHA1.hexdigest()))
         return False
 
     return True
 
+# normalize the resource string for the different systems.
+# this will return the translation for getting the description data for an object.
+def translate_to_desc(origin, recipient, resource):
+    logger.debug("translate: resource is: {0}\n\tfrom:{1}\n\tto:{2}".format(resource, origin, recipient))
+
+    if isinstance(origin, FileSource):
+        res = resource.replace(origin.getBaseUri(), recipient.getBaseUri())
+
+        if isinstance(recipient, FileSource):
+            return resource
+
+        if isinstance(recipient, HttpSource):
+            if settings.FILE_FCR_METADATA in resource:
+                return res.replace(settings.FILE_FCR_METADATA, 'fcr:metadata')
+            else:
+                return res + '/fcr:metadata'
+
+    elif isinstance(origin, HttpSource):
+        if isinstance(recipient, HttpSource):
+            return resource
+
+        if isinstance(recipient, FileSource):
+            if origin.is_binary(resource):
+
+                if 'fcr:metadata' in resource:
+                    res = resource.replace('fcr:metadata', settings.FILE_FCR_METADATA)
+                    return res.replace(origin.baseUri, recipient.desc_dir)
+                else:
+                    res = resource + '/' + settings.FILE_FCR_METADATA
+                    return res.replace(origin.baseUri, recipient.desc_dir)
+
+            else:
+                res = resource
+                if res.endswith('/'):
+                    res = res[:-1]
+                res += recipient.getFileExt()
+                return res.replace(origin.baseUri, recipient.desc_dir)
+
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('-i', help='interactive mode', action='store_true')
-    parser.add_argument('-v', help='verbose', action='store_true')
+    parser.add_argument('--loglevel', help='Level of output into log [DEBUG, INFO, WARN, ERROR], ' +
+                        'default is WARN. To list the records being looked at, set this to INFO', default='WARN')
     args = parser.parse_args()
 
-    if args.i:
-        g_interactive = True
-    if args.v:
-        settings.verbose = True
+    settings.init()
 
     cfgParser = SafeConfigParser()
     cfgParser.read(CONFIG)
 
-    mode = cfgParser.get('general', 'testing')
     out_file = cfgParser.get('general', 'report_dir') + REPORT_FILE
 
-    fedoraUrl = cfgParser.get('fedora1', 'baseUri')
-    fedoraPrefix = cfgParser.get('fedora1', 'prefix')
-    user = cfgParser.get('fedora1', 'user')
-    passwd = cfgParser.get('fedora1', 'password')
+    loglevel = args.loglevel
+    numeric_level = getattr(logging, loglevel.upper(), None)
+    logger = logging.getLogger('output')
+    filehandler = logging.FileHandler(filename=REPORT_FILE, mode='w')
+    filehandler.setLevel(numeric_level)
+    logger.addHandler(filehandler)
+    logger.setLevel(numeric_level)
 
-    fileDir = cfgParser.get('file1', 'baseUri') 
-    filePrefix = cfgParser.get('file1', 'prefix')
+    test_mode = cfgParser.get('general', 'test_mode')
+
+    fedoraUrl = cfgParser.get('fedora1', 'baseUri')
+    auth = cfgParser.get('fedora1', 'auth')
+
+    fileDir = cfgParser.get('file1', 'baseUri')
     if not fileDir.endswith('/'):
         fileDir += '/'
 
-    binDir = cfgParser.get('file1', 'bin_path')
-    descDir = cfgParser.get('file1', 'desc_path')
+    fileExt = cfgParser.get('file1', 'ext')
 
-    if binDir is None or descDir is None:
-        print('Unable to run: the export must be in two separate directories.')
+    binDir = fileDir + cfgParser.get('file1', 'bin_path') + cfgParser.get('file1', 'prefix')
+    descDir = fileDir + cfgParser.get('file1', 'desc_path') + cfgParser.get('file1', 'prefix')
+
+    logger.debug('bin_dir = {0}\ndesc_dir = {1}'.format(binDir, descDir))
+
+    if (binDir is None or descDir is None) or (binDir == descDir):
+        logger.error('Unable to run: the export must be in two separate directories.')
         exit()
 
-    # mode dictates order of arguments passed in.
-    # if mode == import, pass in file1, then fedora1
-    # if mode == export, pass in fedora1, then file1
-    # in the future one may be able to test fedora against fedora, but that's down
-    # the road. But that's why there's a number after 'file' and 'fedora'
+    httpSource = HttpSource(fedoraUrl, auth)
+    fileSource = FileSource(fileDir, descDir, binDir, fileExt)
 
-    httpSource = HttpSource(fedoraUrl, fedoraPrefix, user, passwd)
-    fileSource = FileSource(fileDir, filePrefix, descDir, binDir)
+    logger.warn('Checking differences between two systems:');
+    logger.warn('\tSource One: {0}\n\tSource Two: {1}\n'.format(fedoraUrl, fileDir))
 
+    import_stats = {}
+    export_stats = {}
+
+    if test_mode == 'export' or test_mode == 'both':
+        logger.warn('------- Export test: walking the files comparing them to Fedora ---------\n')
+        export_stats = check_sources(origSource=httpSource, newSource=fileSource)
+
+    if test_mode == 'import' or test_mode == 'both':
+        logger.warn('------- Import test: walking Fedora comparing that to the files ---------\n')
+        import_stats = check_sources(origSource=fileSource, newSource=httpSource)
 
     total_objects = 0
-    with open(out_file, 'w') as fp:
-        fp.write('Checking differences between two systems:\n\t')
-        if mode.lower() == 'export':
-            fp.write('{0}\n\t{1}\n\n'.format(httpSource, fileSource))
-            total_objects = check_sources(origSource=httpSource, newSource=fileSource, log=fp)
-        elif mode.lower() == 'import':
-            fp.write('{0}\n\t{1}\n\n'.format(fileSource, httpSource))
-            total_objects = check_sources(origSource=fileSource, newSource=httpSource, log=fp)
+    if len(export_stats):
+        logger.warn('Export test results:\n\tMissing Records: {}'.format(export_stats['missing']))
+        logger.warn('\tRDF Resource Mismatch: {}'.format(export_stats['desc_mismatch']))
+        logger.warn('\tNon RDF Resource Mismatch: {}'.format(export_stats['bin_mismatch']))
+        total_objects = export_stats['rec_count']
 
-        fp.write('*'*100)
-        fp.write('\nFinished verifying systems. Looked at {0} total objects.\n'.format(total_objects))
+    if len(import_stats):
+        logger.warn('Import test results:\n\tMissing Records: {}'.format(import_stats['missing']))
+        logger.warn('\tRDF Resource Mismatch: {}'.format(import_stats['desc_mismatch']))
+        logger.warn('\tNon RDF Resource Mismatch: {}'.format(import_stats['bin_mismatch']))
+        total_objects += import_stats['rec_count']
+
+    logger.warn('*'*100)
+    logger.warn('\nFinished verifying systems. Looked at {0} total objects.\n'.format(total_objects))
 
