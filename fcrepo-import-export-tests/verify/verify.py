@@ -26,7 +26,7 @@ from __future__ import absolute_import, division, print_function
 import settings
 
 import argparse
-from configparser import SafeConfigParser
+import sys
 import hashlib
 import os
 
@@ -34,6 +34,11 @@ import logging
 
 from source import HttpSource
 from source import FileSource
+
+if sys.version_info[0] < 3:
+    from ConfigParser import SafeConfigParser
+else:
+    from configparser import SafeConfigParser
 
 CONFIG = 'config.ini'
 REPORT_FILE = 'verification_report.txt'
