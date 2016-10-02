@@ -57,7 +57,9 @@ class FileSource(Source):
         self.bin_dir = bin_dir.replace('file://', '')
 
         self.to_check = [self.desc_dir + self.ext]
-        for dirpath, dirname, filenames in os.walk(self.desc_dir.replace('file://', ''), onerror=FileSource.walkfailed):
+        for dirpath, dirname, filenames in os.walk(self.desc_dir,
+                                                 onerror=FileSource.walkfailed
+                                                 ):
             for name in filenames:
                 self.to_check.append(os.path.join(dirpath,name))
 

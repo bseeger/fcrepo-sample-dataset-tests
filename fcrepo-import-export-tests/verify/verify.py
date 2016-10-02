@@ -216,9 +216,9 @@ if __name__ == '__main__':
             elif opts[line] == '-r':
                 fedoraUrl = opts[line + 1]
             elif opts[line] == '-d':
-                descDir = opts[line + 1]
+                descPath = opts[line + 1]
             elif opts[line] == '-b':
-                binDir = opts[line + 1]
+                binPath = opts[line + 1]
             elif opts[line] == '-x':
                 fileExt = opts[line + 1]
             elif opts[line] == '-l':
@@ -226,7 +226,9 @@ if __name__ == '__main__':
             else:
                 pass
         
-        fileDir = '/'
+        fileDir = os.path.commonprefix([descPath, binPath])
+        descDir = fileDir + os.path.relpath(descPath, fileDir) + "/rest"
+        binDir = fileDir + os.path.relpath(binPath, fileDir) + "/rest"
         out_file = './verification_report.txt'
         auth = tuple(args.user.split(':'))
 
