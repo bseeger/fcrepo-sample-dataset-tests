@@ -33,6 +33,12 @@ logger = logging.getLogger('output')
 class Source() :
     def __init__ (self, baseUri):
         self.baseUri = baseUri
+    
+    def __str__(self):
+        return self.baseUri
+
+    def __iter__(self):
+        return self
 
     def getBaseUri(self):
         return self.baseUri
@@ -51,15 +57,11 @@ class FileSource(Source):
         self.bin_dir = bin_dir.replace('file://', '')
 
         self.to_check = [self.desc_dir + self.ext]
-        for dirpath, dirname, filenames in os.walk(self.desc_dir.replace('file://', ''), onerror=FileSource.walkfailed):
+        for dirpath, dirname, filenames in os.walk(self.desc_dir,
+                                                 onerror=FileSource.walkfailed
+                                                 ):
             for name in filenames:
                 self.to_check.append(os.path.join(dirpath,name))
-
-    def __str__(self):
-        return self.baseUri
-
-    def __iter__(self):
-        return self
 
     def __next__(self):
         if not self.to_check:
@@ -105,16 +107,10 @@ class HttpSource(Source):
 
     def __init__(self, baseUri, auth):
         Source.__init__(self, baseUri)
-        self.auth = tuple(auth.split(':'))
+        self.auth = auth
 
         # back up one directory to get the rest.xyz file
         self.to_check = [baseUri]
-
-    def __str__(self):
-        return self.baseUri
-
-    def __iter__(self):
-        return self
 
     def fetchBinaryResource(self, aresource):
         resource = aresource

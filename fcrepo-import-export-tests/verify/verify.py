@@ -24,12 +24,10 @@
 from __future__ import absolute_import, division, print_function
 
 import settings
-
 import argparse
 import sys
 import hashlib
 import os
-
 import logging
 
 from source import HttpSource
@@ -170,38 +168,77 @@ def translate_to_desc(origin, recipient, resource):
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--loglevel', help='Level of output into log [DEBUG, INFO, WARN, ERROR], ' +
-                        'default is WARN. To list the records being looked at, set this to INFO', default='WARN')
+    parser.add_argument('--loglevel', 
+                        help='''Level of output into log [DEBUG, INFO, WARN, 
+                                ERROR], default is WARN. To list the records 
+                                being looked at, set this to INFO''',
+                        default='WARN')
+    parser.add_argument('--config', '-c', help='Path to import/export config')
+    parser.add_argument('--user', '-u', help='''Server credentials in the form
+                                                user:password''')
+                        
     args = parser.parse_args()
 
     settings.init()
 
-    cfgParser = SafeConfigParser()
-    cfgParser.read(CONFIG)
+    if not args.config:
+        cfgParser = SafeConfigParser()
+        cfgParser.read(CONFIG)
+        test_mode = cfgParser.get('general', 'test_mode')
 
-    out_file = cfgParser.get('general', 'report_dir') + REPORT_FILE
+        fedoraUrl = cfgParser.get('fedora1', 'baseUri')
+        auth = tuple(cfgParser.get('fedora1', 'auth').split(':'))
+
+        fileDir = cfgParser.get('file1', 'baseUri')
+        if not fileDir.endswith('/'):
+            fileDir += '/'
+
+        fileExt = cfgParser.get('file1', 'ext')
+
+        binDir = (fileDir + 
+                  cfgParser.get('file1', 'bin_path') + 
+                  cfgParser.get('file1', 'prefix')
+                  )
+        descDir = (fileDir + 
+                   cfgParser.get('file1', 'desc_path') + 
+                   cfgParser.get('file1', 'prefix')
+                   )
+        out_file = cfgParser.get('general', 'report_dir') + REPORT_FILE
+        
+    else:
+        print("loading opts from import/export config file")
+        with open(args.config, 'r') as f:
+            opts = [line for line in f.read().split('\n')]
+
+        for line in range(len(opts)):
+            if opts[line] == '-m':
+                test_mode = opts[line + 1]
+            elif opts[line] == '-r':
+                fedoraUrl = opts[line + 1]
+            elif opts[line] == '-d':
+                descPath = opts[line + 1]
+            elif opts[line] == '-b':
+                binPath = opts[line + 1]
+            elif opts[line] == '-x':
+                fileExt = opts[line + 1]
+            elif opts[line] == '-l':
+                pass
+            else:
+                pass
+        
+        fileDir = os.path.commonprefix([descPath, binPath])
+        descDir = fileDir + os.path.relpath(descPath, fileDir) + "/rest"
+        binDir = fileDir + os.path.relpath(binPath, fileDir) + "/rest"
+        out_file = './verification_report.txt'
+        auth = tuple(args.user.split(':'))
 
     loglevel = args.loglevel
     numeric_level = getattr(logging, loglevel.upper(), None)
     logger = logging.getLogger('output')
-    filehandler = logging.FileHandler(filename=REPORT_FILE, mode='w')
+    filehandler = logging.FileHandler(filename=out_file, mode='w')
     filehandler.setLevel(numeric_level)
     logger.addHandler(filehandler)
     logger.setLevel(numeric_level)
-
-    test_mode = cfgParser.get('general', 'test_mode')
-
-    fedoraUrl = cfgParser.get('fedora1', 'baseUri')
-    auth = cfgParser.get('fedora1', 'auth')
-
-    fileDir = cfgParser.get('file1', 'baseUri')
-    if not fileDir.endswith('/'):
-        fileDir += '/'
-
-    fileExt = cfgParser.get('file1', 'ext')
-
-    binDir = fileDir + cfgParser.get('file1', 'bin_path') + cfgParser.get('file1', 'prefix')
-    descDir = fileDir + cfgParser.get('file1', 'desc_path') + cfgParser.get('file1', 'prefix')
 
     logger.debug('bin_dir = {0}\ndesc_dir = {1}'.format(binDir, descDir))
 
