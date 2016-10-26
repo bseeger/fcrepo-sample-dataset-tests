@@ -33,9 +33,9 @@ This tool has the following modes:
 
 How to use this in testing:
 * Load a data set from [Import Export Datasets](http://github.com/fcrepo4-labs/fcrepo-sample-dataset), or use your own.
-* Export data from a Fedora4 system in **n-triples** format, using the [Fedora4 Import Export Client](http://github.com/fcrepo4-labs/fcrepo-import-export)
+* Export data from a Fedora4 system using the [Fedora4 Import Export Client](http://github.com/fcrepo4-labs/fcrepo-import-export)
 * Configure this verification tool to point to both your Fedora4 server and the disk location where the files are.
-* Run this tool and check the 'verification-report.txt' file that was created. It will report information on errors, if any are found. 
+* Run this tool and check the 'verification-report.txt' file that was created. It will report information on errors, if any are found.
 
 To run the verify test, first edit the configuration file ```config.ini``` (details below) and
 then run:
